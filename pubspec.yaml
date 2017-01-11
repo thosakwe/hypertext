@@ -1,0 +1,18 @@
+name: hypertext
+description: Alternative HTTP protocol library for Dart.
+version: 0.0.0
+author: thosakwe <thosakwe@gmail.com>
+homepage: https://github.com/thosakwe/hypertext
+
+environment:
+  sdk: '>=1.19.0'
+
+dependencies:
+  body_parser: ^1.0.0-dev
+  http_parser: ^3.0.0
+  string_scanner: ^1.0.0
+
+dev_dependencies:
+  angel_route: ^1.0.0-dev
+  http: ^0.11.0
+  test: ^0.12.0

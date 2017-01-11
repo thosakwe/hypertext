@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Hello",
+            "type": "dart-cli",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "debugSettings": "${command.debugSettings}",
+            "program": "${workspaceRoot}/example/hello.dart",
+            "args": []
+        },
+        {
+            "name": "Routing",
+            "type": "dart-cli",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "debugSettings": "${command.debugSettings}",
+            "program": "${workspaceRoot}/example/routing.dart",
+            "args": []
+        }
+    ]
+}

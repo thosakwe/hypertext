@@ -1,4 +1,7 @@
 # hypertext
+[![version 0.0.0](https://img.shields.io/badge/pub-v0.0.0-red.svg)](https://pub.dartlang.org/packages/hypertext)
+[![build status](https://travis-ci.org/thosakwe/hypertext.svg)](https://travis-ci.org/thosakwe/hypertext)
+
 Alternative HTTP protocol library for Dart. The main difference here
 is that the developer gets a lot more freedom than with the
 `dart:io` implementation.

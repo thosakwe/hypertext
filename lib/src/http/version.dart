@@ -9,6 +9,12 @@ class Version {
 
   const Version(this.major, this.minor, {this.protocol: 'HTTP'});
 
+  operator ==(other) =>
+      other is Version &&
+      other.protocol == protocol &&
+      other.major == major &&
+      other.minor == minor;
+
   factory Version.parse(String versionString) {
     var m = _version.firstMatch(versionString);
 

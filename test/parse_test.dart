@@ -16,6 +16,29 @@ Accept-Language: en-US,en;q=0.8'''
         .codeUnits);
 
     expect(req, new isInstanceOf<BaseRequest>());
+    expect(req.method, equals('GET'));
+    expect(req.url, equals('/'));
+    expect(req.version, equals(HTTP_V11));
+    [
+      'host',
+      'connection',
+      'cache-control',
+      'upgrade-insecure-requests',
+      'user-agent',
+      'accept',
+      'dnt',
+      'accept-encoding',
+      'accept-language'
+    ].forEach((header) => expect(req.headers.has(header), isTrue));
+
+    [
+      'gzip',
+      'deflate',
+      'sdch',
+      'br'
+    ].forEach((enc) => expect(req.headers['accept-encoding'], contains(enc)));
+    expect(req.headers.value('conNECTIoN'), equals('keep-alive'));
+    expect(req.headers['user-agent']?.first, startsWith('Mozilla'));
     print(req.toHttp());
   });
 }

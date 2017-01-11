@@ -48,11 +48,20 @@ class Parser implements StreamTransformer<List<int>, BaseRequest> {
 
         while (!scanner.isDone) {
           if (scanner.scan(_header)) {
-            String key = scanner.lastMatch[1];
-            List<String> values = scanner.lastMatch[2]
-                .split(',')
-                .where((str) => str.isNotEmpty)
-                .toList();
+            String key = scanner.lastMatch[1].toLowerCase().trim();
+
+            List<String> values;
+
+            if (key == 'user-agent') {
+              values = [scanner.lastMatch[2]];
+            } else {
+              values = scanner.lastMatch[2]
+                  .split(',')
+                  .where((str) => str.isNotEmpty)
+                  .map((str) => str.trim())
+                  .toList();
+            }
+
             printDebug('Found header: $key => $values');
             request.headers.set(key, values);
 

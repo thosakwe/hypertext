@@ -1,4 +1,4 @@
-import 'package:hypertext/http.dart';
+import 'package:hypertext/hypertext.dart';
 import 'package:test/test.dart';
 
 main() {
@@ -15,7 +15,7 @@ Accept-Encoding: gzip, deflate, sdch, br
 Accept-Language: en-US,en;q=0.8'''
         .codeUnits);
 
-    expect(req, new isInstanceOf<BaseRequest>());
+    expect(req, new isInstanceOf<Request>());
     expect(req.method, equals('GET'));
     expect(req.url, equals('/'));
     expect(req.version, equals(HTTP_V11));

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'headers.dart';
 import 'version.dart';
 
-abstract class BaseResponse {
+abstract class Response implements StreamConsumer<List<int>>, StringSink {
   List<int> get body;
   Headers get headers;
   int get statusCode;

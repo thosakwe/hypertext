@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:hypertext/src/http/response.dart';
 import 'package:string_scanner/string_scanner.dart';
 import 'headers.dart';
 import 'request.dart';
@@ -10,7 +11,7 @@ final RegExp _start =
 final RegExp _header = new RegExp(r'([A-Za-z-]+)\s*:\s*([^\n]+)');
 
 // Todo: Handle syntax errors
-class Parser implements StreamTransformer<List<int>, BaseRequest> {
+class Parser implements StreamTransformer<List<int>, Request> {
   final bool debug;
   final Encoding encoding;
 
@@ -21,8 +22,8 @@ class Parser implements StreamTransformer<List<int>, BaseRequest> {
   }
 
   @override
-  Stream<BaseRequest> bind(Stream<List<int>> stream) {
-    var ctrl = new StreamController<BaseRequest>();
+  Stream<Request> bind(Stream<List<int>> stream) {
+    var ctrl = new StreamController<Request>();
 
     var sub = stream.listen((buf) {
       var request = parse(buf);
@@ -36,7 +37,7 @@ class Parser implements StreamTransformer<List<int>, BaseRequest> {
     return ctrl.stream;
   }
 
-  BaseRequest parse(List<int> buf) {
+  Request parse(List<int> buf) {
     var scanner = new StringScanner(encoding.decode(buf));
 
     while (!scanner.isDone) {
@@ -73,7 +74,8 @@ class Parser implements StreamTransformer<List<int>, BaseRequest> {
 
         return request
           .._data = buf.skip(scanner.position).toList()
-          ..headers._lock();
+          ..headers._lock()
+          ..close();
       } else
         scanner.readChar();
     }
@@ -82,7 +84,8 @@ class Parser implements StreamTransformer<List<int>, BaseRequest> {
   }
 }
 
-class _BaseRequestImpl extends BaseRequest {
+class _BaseRequestImpl extends Request {
+  final StreamController<List<int>> _ctrl = new StreamController<List<int>>();
   List<int> _data;
 
   @override
@@ -98,6 +101,22 @@ class _BaseRequestImpl extends BaseRequest {
   List<int> get body => _data;
 
   _BaseRequestImpl(this.method, this.url, this.version);
+
+  @override
+  Response get response => null;
+
+  close() {
+    _ctrl
+      ..add(_data)
+      ..close();
+  }
+
+  @override
+  StreamSubscription<List<int>> listen(void onData(List<int> event),
+      {Function onError, void onDone(), bool cancelOnError}) {
+    return _ctrl.stream.listen(onData,
+        onError: onError, onDone: onDone, cancelOnError: cancelOnError == true);
+  }
 }
 
 class _UnmodifiableHeaders extends Headers {

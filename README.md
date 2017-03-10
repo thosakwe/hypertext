@@ -1,5 +1,5 @@
 # hypertext
-[![version 0.0.0](https://img.shields.io/badge/pub-v0.0.0-red.svg)](https://pub.dartlang.org/packages/hypertext)
+[![version 1.0.0-alpha](https://img.shields.io/badge/pub-v1.0.0--alpha-red.svg)](https://pub.dartlang.org/packages/hypertext)
 [![build status](https://travis-ci.org/thosakwe/hypertext.svg)](https://travis-ci.org/thosakwe/hypertext)
 
 Alternative HTTP protocol library for Dart. The main difference here

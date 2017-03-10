@@ -1,2 +1,3 @@
-@Deprecated('Please import "package:hypertext/http.dart" instead.')
-export 'http.dart';
+library hypertext;
+
+export 'src/http/http.dart';

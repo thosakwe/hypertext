@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'headers.dart';
+import 'response.dart';
 import 'version.dart';
 
-abstract class BaseRequest {
+abstract class Request extends Stream<List<int>> {
   List<int> get body;
   Headers get headers;
   String get method;
+  Response get response;
   String get url;
   Version get version;
 

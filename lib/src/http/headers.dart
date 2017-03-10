@@ -9,11 +9,19 @@ class Headers {
 
   void set contentType(MediaType type) => set('content-type', type.mimeType);
 
-  DateTime get date => _headers.containsKey('date')
-      ? parseHttpDate(_headers['date'].join())
-      : null;
+  DateTime get date {
+    if (_headers.containsKey('date'))
+      return parseHttpDate(_headers['date'].join());
+    else {
+      var now = new DateTime.now();
+      _headers['date'] = [formatHttpDate(now)];
+      return now;
+    }
+  }
 
   void set date(DateTime date) => set('date', formatHttpDate(date));
+
+  bool get keepAlive => _headers['connection'] == 'keep-alive';
 
   List<String> operator [](String key) => get(key);
 
@@ -31,8 +39,11 @@ class Headers {
 
   void clear() => _headers.clear();
 
+  bool containsKey(String key) =>
+      _headers.containsKey(key.toLowerCase().trim());
+
   List<String> get(String key) {
-    var k = key.toLowerCase();
+    var k = key.toLowerCase().trim();
     if (_headers.containsKey(k))
       return new List<String>.unmodifiable(_headers[k]);
     return null;
@@ -47,11 +58,11 @@ class Headers {
   void set(String key, value) {
     if (value is! Iterable<String> && value is! String)
       throw new ArgumentError(
-          'Headers must be set to either strings, of an iterable thereof.');
+          'Headers must be set to either strings, of an iterable thereof. You gave: $value');
     List<String> values =
         value is Iterable<String> ? value.toList() : [value.toString()];
 
-    var k = key.toLowerCase();
+    var k = key.toLowerCase().trim();
     if (_headers.containsKey(k))
       _headers[k].addAll(values);
     else
@@ -65,7 +76,7 @@ class Headers {
       new Map<String, List<String>>.unmodifiable(_headers);
 
   Map<String, String> toValueMap({String separator: ','}) {
-    Map<String, String> out = {};
+    Map<String, String> out = {'date': formatHttpDate(date)};
     _headers.forEach((k, v) => out[k] = v.join(separator));
     return out;
   }

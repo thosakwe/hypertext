@@ -36,3 +36,4 @@ cmake-build-debug
 .dart_tool
 
 *.cbp
+.vscode

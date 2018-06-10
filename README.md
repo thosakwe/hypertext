@@ -2,7 +2,7 @@
 [![Pub](https://img.shields.io/pub/v/hypertext.svg)](https://pub.dartlang.org/packages/hypertext)
 [![build status](https://travis-ci.org/thosakwe/hypertext.svg)](https://travis-ci.org/thosakwe/hypertext)
 
-Bare-metal, native-code, multi-threaded HTTP server for Dart.
+Bare-metal, native-code, multi-threaded HTTP server for Dart. :fire:
 
 `package:hypertext` entirely skips over `dart:io` and deals directly with
 Berkeley sockets, and handling connections using

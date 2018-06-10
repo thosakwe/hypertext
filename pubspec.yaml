@@ -1,11 +1,11 @@
 name: hypertext
-description: Bare-metal, native-code, multi-threaded HTTP server for Dart.
+description: "Bare-metal, native-code, multi-threaded HTTP server for Dart. 🔥"
 version: 0.0.1
 author: thosakwe <thosakwe@gmail.com>
 homepage: https://github.com/thosakwe/hypertext
 
 environment:
-  sdk: '>=1.19.0'
+  sdk: '>=2.0.0-dev.0 <3.0.0'
 
 dev_dependencies:
   angel_route: ^1.0.0

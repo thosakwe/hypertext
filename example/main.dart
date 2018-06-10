@@ -10,14 +10,13 @@ void main() {
 }
 
 void serverMain(int isolateId) {
-  var server = new Server(new HttpDriver('127.0.0.1', 3000, shared: true));
+  var server = new Server(new HttpDriver('127.0.0.1', 3000));
   server.start();
   print('Listening at http://${server.driver.host}:${server.driver.port}');
 
   server.onRequest.listen((rq) {
     String message;
     int status = 200;
-    print(isolateId);
 
     switch (rq.url) {
       case '/':

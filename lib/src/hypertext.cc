@@ -58,10 +58,11 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message);
 typedef struct
 {
     bool ipv6;
-    int sock, shared_count, shared_index;
+    int sock;
+    unsigned int shared_index;
     int64_t bound_port;
     char *host;
-    Dart_Port *shared_ports;
+    std::vector<Dart_Port> *shared_ports;
     Dart_Port port;
     std::thread *worker;
 } server_info;
@@ -137,7 +138,8 @@ void Server_init(Dart_NativeArguments arguments) {
     HandleError(Dart_BooleanValue(shared_handle, &shared));
 
     server_info *info = nullptr;
-    int sock = -1, shared_idx = -1;
+    int sock = -1;
+    unsigned long shared_idx = 0;
 
     if (shared) {
         for (auto *server : shared_servers) {
@@ -147,11 +149,8 @@ void Server_init(Dart_NativeArguments arguments) {
                 info = server;
                 sock = server->sock;
                 existingShared = true;
-                auto *new_ports = new Dart_Port[info->shared_count + 1];
-                memcpy(new_ports, server->shared_ports, server->shared_count++ * sizeof(Dart_Port));
-                delete[] server->shared_ports;
-                server->shared_ports = new_ports;
-                shared_idx = server->shared_count++;
+                shared_idx = server->shared_ports->size();
+                server->shared_ports->push_back(new_port);
                 break;
             }
         }
@@ -159,14 +158,6 @@ void Server_init(Dart_NativeArguments arguments) {
 
     // Open the socket.
     if (sock == -1) {
-        /*
-        auto *sock = new net::socket(ipv6 ? net::af::inet6 : net::af::inet, net::sock::stream, (int) port);
-        sock->setnonblocking(true);
-        info->sock = sock;
-        HandleError(Dart_SendPortGetId(send_port_handle, &info->port));
-        */
-        //struct sockaddr serveraddr;
-
         sa_family_t family;
         int ret = 0;
         if (ipv6) family = AF_INET6;
@@ -236,8 +227,8 @@ void Server_init(Dart_NativeArguments arguments) {
 
         // Server info.
         info = new server_info;
+        info->shared_ports = new std::vector<Dart_Port>;
         info->host = strdup(host);
-        info->shared_count = 0;
         info->shared_index = 0;
         info->ipv6 = ipv6;
         info->bound_port = port;
@@ -245,8 +236,8 @@ void Server_init(Dart_NativeArguments arguments) {
         HandleError(Dart_SendPortGetId(send_port_handle, &info->port));
 
         if (shared && !existingShared) {
-            shared_idx = info->shared_count = 1;
-            info->shared_ports = new Dart_Port[1]{info->port};
+            shared_idx = 0;
+            info->shared_ports->push_back(info->port);
             shared_servers.push_back(info);
         }
     }
@@ -258,7 +249,7 @@ void Server_init(Dart_NativeArguments arguments) {
     Dart_Handle out_handle = Dart_NewList(3);
     Dart_ListSetAt(out_handle, 0, Dart_NewIntegerFromUint64((uint64_t) info));
     Dart_ListSetAt(out_handle, 1, Dart_NewSendPort(out_port));
-    Dart_ListSetAt(out_handle, 2, Dart_NewInteger(shared ? shared_idx : -1));
+    Dart_ListSetAt(out_handle, 2, Dart_NewIntegerFromUint64(shared ? shared_idx : -1));
     Dart_SetReturnValue(arguments, out_handle);
 }
 
@@ -278,21 +269,25 @@ void request_main(request_info *rq);
 
 
 void send_error(Dart_Port port, const char *msg) {
-    auto *obj = new Dart_CObject;
-    obj->type = Dart_CObject_kString;
-    obj->value.as_string = (char *) msg;
-    Dart_PostCObject(port, obj);
-    delete obj;
+    Dart_CObject obj{};
+    obj.type = Dart_CObject_kString;
+    obj.value.as_string = (char *) msg;
+    Dart_PostCObject(port, &obj);
 }
 
 void worker_main(current_server_info *current_info) {
     auto *info = current_info->server_info;
+    // std::cout << "Isolate #" << current_info->index << " listening to " << info << std::endl;
+
+    /*for (unsigned long i = 0; i < info->shared_ports->size(); i++) {
+        std::cout << "Shared #" << i << " => " << info->shared_ports->at(i) << std::endl;
+    }*/
 
     while (true) {
-        //if (info->shared_index != current_info->index) continue;
-        auto *client_addr = new sockaddr;
+        if (!info->shared_ports->empty() && info->shared_index != current_info->index) continue;
+        sockaddr client_addr{};
         socklen_t client_addr_len;
-        int client = accept(info->sock, client_addr, &client_addr_len);
+        int client = accept(info->sock, &client_addr, &client_addr_len);
 
         if (client < 0) {
             // send_error(info->port, "Failed to accept client socket.");
@@ -300,24 +295,25 @@ void worker_main(current_server_info *current_info) {
         }
 
         // Start a new thread!
-        auto *rq = new request_info;
-        rq->ipv6 = info->ipv6;
-        rq->sock = client;
-        rq->addr = client_addr;
-        rq->addr_len = client_addr_len;
+        //auto *rq = new request_info;
+        request_info rq{};
+        rq.ipv6 = info->ipv6;
+        rq.sock = client;
+        rq.addr = &client_addr;
+        rq.addr_len = client_addr_len;
 
-        if (info->shared_count == 0)
-            rq->port = info->port;
+        if (info->shared_ports->empty())
+            rq.port = info->port;
         else {
-            rq->port = info->shared_ports[info->shared_index++];
-            if (info->shared_index >= info->shared_count) info->shared_index = 0;
+            rq.port = info->shared_ports->at(info->shared_index++);
+            if (info->shared_index >= info->shared_ports->size()) info->shared_index = 0;
         }
 
-        auto *thread = new std::thread(request_main, rq);
-        thread->detach();
+        // TODO: Let the user determine whether to do thread-per-connection
+        request_main(&rq);
+        //auto *thread = new std::thread(request_main, rq);
+        //thread->detach();
     }
-
-    delete current_info;
 }
 
 void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
@@ -357,7 +353,9 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
 
             // Free the struct.
             shared_servers.erase(std::remove(shared_servers.begin(), shared_servers.end(), info), shared_servers.end());
-            delete info;
+            //delete info;
+
+            // TODO: Find a safe way to delete this in shared mode
         }
         case 2: {
             int64_t sockfd = get_int(message->value.as_array.values[3]);
@@ -385,22 +383,19 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
 
 int send_notification(http_parser *parser, int code) {
     auto *rq = (request_info *) parser->data;
-    auto *obj = new Dart_CObject;
-    obj->type = Dart_CObject_kArray;
-    obj->value.as_array.length = 2;
+    Dart_CObject obj{};
+    obj.type = Dart_CObject_kArray;
+    obj.value.as_array.length = 2;
 
-    auto *list = obj->value.as_array.values = new Dart_CObject *[2];
-    auto *first = list[0] = new Dart_CObject;
-    auto *second = list[1] = new Dart_CObject;
-    first->type = second->type = Dart_CObject_kInt32;
-    first->value.as_int32 = rq->sock;
-    second->value.as_int32 = code;
+    auto *list = new Dart_CObject[2];
+    auto first = list[0];
+    auto second = list[1];
+    first.type = second.type = Dart_CObject_kInt32;
+    first.value.as_int32 = rq->sock;
+    second.value.as_int32 = code;
 
-    Dart_PostCObject(rq->port, obj);
-    delete first;
-    delete second;
+    Dart_PostCObject(rq->port, &obj);
     delete[] list;
-    delete obj;
     return 0;
 }
 
@@ -408,83 +403,73 @@ int send_string(http_parser *parser, char *str, size_t length, int code, bool as
     auto *rq = (request_info *) parser->data;
 
     // Post the string back to Dart...
-    auto *obj = new Dart_CObject;
-    obj->type = Dart_CObject_kArray;
-    obj->value.as_array.length = 3;
+    Dart_CObject obj{};
+    obj.type = Dart_CObject_kArray;
+    obj.value.as_array.length = 3;
 
-    auto *list = obj->value.as_array.values = new Dart_CObject *[3];
-    auto *first = list[0] = new Dart_CObject;
-    auto *second = list[1] = new Dart_CObject;
-    auto *third = list[2] = new Dart_CObject;
-    first->type = second->type = Dart_CObject_kInt32;
-    first->value.as_int32 = rq->sock;
-    second->value.as_int32 = code;
+
+    auto *list = new Dart_CObject[3];
+    obj.value.as_array.values = &list;
+    auto first = list[0];
+    auto second = list[1];
+    auto third = list[2];
+    first.type = second.type = Dart_CObject_kInt32;
+    first.value.as_int32 = rq->sock;
+    second.value.as_int32 = code;
 
     if (!as_typed_data) {
-        third->type = Dart_CObject_kString;
-        third->value.as_string = new char[length];
-        memcpy(third->value.as_string, str, length);
+        third.type = Dart_CObject_kString;
+        third.value.as_string = strdup(str);
+        //third.value.as_string = new char[length];
+        //memcpy(third.value.as_string, str, length);
     } else {
-        third->type = Dart_CObject_kExternalTypedData;
-        third->value.as_external_typed_data.type = Dart_TypedData_kUint8;
-        third->value.as_external_typed_data.length = length;
-        third->value.as_external_typed_data.data = (uint8_t *) str;
+        third.type = Dart_CObject_kExternalTypedData;
+        third.value.as_external_typed_data.type = Dart_TypedData_kUint8;
+        third.value.as_external_typed_data.length = length;
+        third.value.as_external_typed_data.data = (uint8_t *) str;
     }
 
-    Dart_PostCObject(rq->port, obj);
-    delete first;
-    delete second;
-    if (!as_typed_data) delete[] third->value.as_string;
-    delete third;
+    Dart_PostCObject(rq->port, &obj);
     delete[] list;
-    delete obj;
     return 0;
 }
 
 int send_oncomplete(http_parser *parser, int code) {
     auto *rq = (request_info *) parser->data;
 
-    auto *obj = new Dart_CObject;
-    obj->type = Dart_CObject_kArray;
-    obj->value.as_array.length = 6;
+    Dart_CObject obj{};
+    obj.type = Dart_CObject_kArray;
+    obj.value.as_array.length = 6;
 
-    auto *list = obj->value.as_array.values = new Dart_CObject *[6];
-    auto *sockfd = list[0] = new Dart_CObject;
-    auto *command = list[1] = new Dart_CObject;
-    auto *method = list[2] = new Dart_CObject;
-    auto *major = list[3] = new Dart_CObject;
-    auto *minor = list[4] = new Dart_CObject;
-    auto *addr = list[5] = new Dart_CObject;
-    sockfd->type = command->type = method->type = major->type = minor->type = Dart_CObject_kInt32;
-    addr->type = Dart_CObject_kExternalTypedData;
-    sockfd->value.as_int32 = rq->sock;
-    command->value.as_int32 = code;
-    method->value.as_int32 = parser->method;
-    major->value.as_int32 = parser->http_major;
-    minor->value.as_int32 = parser->http_minor;
-    addr->value.as_external_typed_data.type = Dart_TypedData_kUint8;
-    addr->value.as_external_typed_data.length = rq->addr_len;
+    auto *list = new Dart_CObject[6];
+    obj.value.as_array.values = &list;
+    auto sockfd = list[0];
+    auto command = list[1];
+    auto method = list[2];
+    auto major = list[3];
+    auto minor = list[4];
+    auto addr = list[5];
+    sockfd.type = command.type = method.type = major.type = minor.type = Dart_CObject_kInt32;
+    addr.type = Dart_CObject_kExternalTypedData;
+    sockfd.value.as_int32 = rq->sock;
+    command.value.as_int32 = code;
+    method.value.as_int32 = parser->method;
+    major.value.as_int32 = parser->http_major;
+    minor.value.as_int32 = parser->http_minor;
+    addr.value.as_external_typed_data.type = Dart_TypedData_kUint8;
+    addr.value.as_external_typed_data.length = rq->addr_len;
 
     if (rq->ipv6) {
         auto *v6 = (sockaddr_in6 *) rq->addr;
-        addr->value.as_external_typed_data.data = (uint8_t *) v6->sin6_addr.s6_addr;
+        addr.value.as_external_typed_data.data = (uint8_t *) v6->sin6_addr.s6_addr;
     } else {
         auto *v4 = (sockaddr_in *) rq->addr;
-        addr->value.as_external_typed_data.data = (uint8_t *) &v4->sin_addr.s_addr;
+        addr.value.as_external_typed_data.data = (uint8_t *) &v4->sin_addr.s_addr;
     }
 
-    Dart_PostCObject(rq->port, obj);
-    delete sockfd;
-    delete command;
-    delete method;
-    delete major;
-    delete minor;
-    delete addr;
+    Dart_PostCObject(rq->port, &obj);
     delete[] list;
-    delete obj;
     delete parser;
-    //delete rq->addr;
-    //delete rq;
     return 0;
 }
 
@@ -495,9 +480,9 @@ void request_main(request_info *rq) {
     ssize_t recved;
     memset(buf, 0, len);
 
-    auto *parser = new http_parser;
-    http_parser_init(parser, HTTP_REQUEST);
-    parser->data = rq;
+    http_parser parser{};
+    http_parser_init(&parser, HTTP_REQUEST);
+    parser.data = rq;
 
     http_parser_settings settings{};
 
@@ -530,36 +515,21 @@ void request_main(request_info *rq) {
 
     while ((recved = recv(rq->sock, buf, len, 0)) > 0) {
         if (isUpgrade) {
-            send_string(parser, buf, (size_t) recved, 7, true);
+            send_string(&parser, buf, (size_t) recved, 7, true);
         } else {
             /* Start up / continue the parser.
              * Note we pass recved==0 to signal that EOF has been received.
              */
-            nparsed = http_parser_execute(parser, &settings, buf, (size_t) recved);
+            nparsed = http_parser_execute(&parser, &settings, buf, (size_t) recved);
 
-            if ((isUpgrade = parser->upgrade) == 1) {
-                send_notification(parser, 6);
+            if ((isUpgrade = parser.upgrade) == 1) {
+                send_notification(&parser, 6);
             } else if (nparsed != recved) {
                 close(rq->sock);
-                //delete rq;
                 return;
             }
         }
 
         memset(buf, 0, len);
     }
-
-    /*
-    if (recved < 0) {
-        auto *obj = new Dart_CObject;
-        obj->type = Dart_CObject_kString;
-        obj->value.as_string = strerror(errno);
-        Dart_PostCObject(rq->port, obj);
-        delete obj;
-        //delete rq;
-        return;
-    }*/
-
-    // Done! Delete the structure.
-    //delete rq;
 }

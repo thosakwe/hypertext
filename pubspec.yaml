@@ -1,6 +1,6 @@
 name: hypertext
-description: Alternative HTTP protocol library for Dart.
-version: 1.0.0-alpha
+description: Bare-metal, native-code, multi-threaded HTTP server for Dart.
+version: 0.0.1
 author: thosakwe <thosakwe@gmail.com>
 homepage: https://github.com/thosakwe/hypertext
 

@@ -1,7 +1,15 @@
+import 'dart:io';
+import 'dart:isolate';
 import 'package:hypertext/hypertext.dart';
 
-void main() {
-  var server = new Server(new HttpDriver('127.0.0.1', 3000));
+main() {
+  for (int i = 1; i < Platform.numberOfProcessors; i++)
+    Isolate.spawn(serverMain, i);
+  serverMain(0);
+}
+
+void serverMain(int isolateId) {
+  var server = new Server(new HttpDriver('127.0.0.1', 3000, shared: true));
   server.start();
   print('Listening at http://${server.driver.host}:${server.driver.port}');
 
@@ -11,7 +19,7 @@ void main() {
 
     switch (rq.url) {
       case '/':
-        content = 'Hello, world!';
+        content = 'Hello from $isolateId!';
         break;
       case '/help':
         content = 'No help available yet.';

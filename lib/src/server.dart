@@ -21,7 +21,7 @@ class Server {
         (sockfd, field) => _ensure(sockfd).headerField = field;
     driver.onHeaderValue =
         (sockfd, value) => _ensure(sockfd).headerValue = value;
-    driver.onBody = (sockfd, body) => _ensure(sockfd).body = body;
+    driver.onBody = (sockfd, body) => _ensure(sockfd)._bodyStream.add(body);
     driver.onUpgradedMessage =
         (sockfd, data) => _upgraded[sockfd]?._stream?.add(data);
     driver.onUpgrade = (sockfd) => _onUpgradedRequest.add(
@@ -35,7 +35,8 @@ class Server {
         ..addr = HttpDriver.addressToString(addrBytes, ipv6: driver.ipv6)
         ..major = major
         ..minor = minor
-        ..method = HttpDriver.intToMethod(method);
+        ..method = HttpDriver.methodToString(method)
+        .._bodyStream.close();
       _staging.remove(sockfd);
       _onRequest.add(new Request._(this, sockfd, staging));
     };
@@ -56,13 +57,15 @@ class Server {
 }
 
 class StagingRequest {
+  final StreamController<Uint8List> _bodyStream = new StreamController();
   String addr;
   int major, minor;
   String url;
   String method;
   Map<String, String> headers = {};
-  Uint8List body;
   String headerField;
+
+  Stream<Uint8List> get body => _bodyStream.stream;
 
   void set headerValue(String s) {
     if (headerField == null) return;
@@ -92,7 +95,7 @@ class BaseRequest {
   Map<String, String> get headers =>
       _headers ??= new Map.unmodifiable(_staging.headers);
 
-  Uint8List get body => _staging.body;
+  Stream<Uint8List> get body => _staging.body;
 }
 
 class Request extends BaseRequest {

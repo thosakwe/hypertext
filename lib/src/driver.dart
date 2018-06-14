@@ -82,7 +82,7 @@ class HttpDriver {
   static String addressToString(Uint8List address, {bool ipv6: false}) =>
       _addressToString(address, ipv6);
 
-  static String intToMethod(int method) {
+  static String methodToString(int method) {
     switch (method) {
       case DELETE:
         return 'DELETE';
@@ -93,7 +93,7 @@ class HttpDriver {
       case POST:
         return 'POST';
       case PUT:
-        return 'PUTT';
+        return 'PUT';
       case CONNECT:
         return 'CONNECT';
       case OPTIONS:
@@ -139,6 +139,7 @@ class HttpDriver {
       throw new StateError(x);
     } else if (x is List && x.length >= 2) {
       int sockfd = x[0], command = x[1];
+      //print(x);
 
       switch (command) {
         case messageBegin:

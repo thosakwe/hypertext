@@ -147,7 +147,7 @@ void Server_init(Dart_NativeArguments arguments) {
 
     if (shared) {
         for (auto server : shared_servers) {
-            if (server == nullptr) continue;
+            //if (server == nullptr) continue;
             if (server->bound_port == port && strcmp(host, server->host) == 0) {
                 Dart_Port new_port;
                 HandleError(Dart_SendPortGetId(send_port_handle, &new_port));
@@ -282,13 +282,13 @@ void send_error(Dart_Port port, const char *msg) {
 }
 
 void worker_main(current_server_info *current_info) {
-    if (current_info == nullptr) return;
+    //if (current_info == nullptr) return;
     auto *raw_info = current_info->server_info;
-    if (raw_info == nullptr) return;
+    //if (raw_info == nullptr) return;
     auto *info = raw_info;
     //auto info = shared_server_info(raw_info);
-    //std::cout << "Isolate #" << current_info->index << " listening to " << info << std::endl;
-    //std::cout << "Sock: " << info->sock << std::endl;
+    // std::cout << "Isolate #" << current_info->index << " listening to " << info << std::endl;
+    // std::cout << "Sock: " << info->sock << std::endl;
 
     /*for (unsigned long i = 0; i < info->shared_ports.size(); i++) {
         std::cout << "Shared #" << i << " => " << info->shared_ports.at(i) << std::endl;
@@ -308,8 +308,8 @@ void worker_main(current_server_info *current_info) {
         }
 
         // Start a new thread!
-        auto rq = new request_info;//std::make_shared<request_info>();
-        //request_info rq{};
+        //auto rq = new request_info;//std::make_shared<request_info>();
+        request_info rq{};
         rq->ipv6 = info->ipv6;
         rq->sock = client;
         rq->addr = client_addr;
@@ -324,14 +324,16 @@ void worker_main(current_server_info *current_info) {
 
         // TODO: Let the user determine whether to do thread-per-connection
         //request_main(rq);
-        auto *thread = new std::thread(request_main, rq);
-        thread->detach();
+        //std::cout << "rqm" << std::endl;
+        //auto *thread = new std::thread(request_main, rq);
+        //thread->detach();
+        //std::cout << "detached!" << std::endl;
     }
 }
 
 void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
     // The argument sent in will ALWAYS be an array.
-    if (message == nullptr) return;
+    //if (message == nullptr) return;
 
     // First element is always the send port.
     Dart_Port out_port = message->value.as_array.values[0]->value.as_send_port.id;
@@ -356,6 +358,7 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
         }
         case 1: {
             // Close the output port.
+            std::cout << "let's close a sendport!" << std::endl;
             Dart_CloseNativePort(message->value.as_array.values[3]->value.as_send_port.id);
 
             // Kill the server thread, if it is running.
@@ -375,6 +378,7 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
             //delete info;
         }
         case 2: {
+            // std::cout << "let's write!" << std::endl;
             int64_t sockfd = get_int(message->value.as_array.values[3]);
             Dart_CObject *typed_data = message->value.as_array.values[4];
             ssize_t result = write((int) sockfd, typed_data->value.as_typed_data.values,
@@ -385,9 +389,11 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
             break;
         }
         case 3: {
+            // std::cout << "let's close a socket!" << std::endl;
             int64_t sockfd = get_int(message->value.as_array.values[3]);
             //std::cout << "Closing individual " << sockfd << "!!!" << std::endl;
             close((int) sockfd);
+            delete raw_info;
             //if (result < 0)
             // send_error(out_port, "Failed to close socket.");
             break;
@@ -399,9 +405,9 @@ void handle_request(Dart_Port dest_port_id, Dart_CObject *message) {
 }
 
 int send_notification(http_parser *parser, int code) {
-    if (parser == nullptr) return 0;
+    //if (parser == nullptr) return 0;
     auto *rq = (request_info *) parser->data;
-    if (rq == nullptr) return 0;
+    //if (rq == nullptr) return 0;
 
     Dart_CObject first{};
     Dart_CObject second{};
@@ -419,9 +425,9 @@ int send_notification(http_parser *parser, int code) {
 }
 
 int send_string(http_parser *parser, char *str, size_t length, int code, bool as_typed_data = false) {
-    if (parser == nullptr) return 0;
+    //if (parser == nullptr) return 0;
     auto *rq = (request_info *) parser->data;
-    if (rq == nullptr) return 0;
+    //if (rq == nullptr) return 0;
     auto *s = new char[length + 1];
     memset(s, 0, length + 1);
 
@@ -456,9 +462,9 @@ int send_string(http_parser *parser, char *str, size_t length, int code, bool as
 }
 
 int send_oncomplete(http_parser *parser, int code) {
-    if (parser == nullptr) return 0;
+    //if (parser == nullptr) return 0;
     auto *rq = (request_info *) parser->data;
-    if (rq == nullptr) return 0;
+    //if (rq == nullptr) return 0;
 
     Dart_CObject sockfd{};
     Dart_CObject command{};
@@ -496,7 +502,7 @@ int send_oncomplete(http_parser *parser, int code) {
 
 void request_main(request_info *rqp) {
     auto *rq = rqp;
-    if (rq == nullptr) return;
+    //if (rq == nullptr) return;
     //auto rq = std::shared_ptr<request_info>(rqp);
 
     // Read ALL the data...
@@ -512,33 +518,41 @@ void request_main(request_info *rqp) {
     http_parser_settings settings{};
 
     settings.on_message_begin = [](http_parser *parser) {
+        // std::cout << "mb" << std::endl;
         return send_notification(parser, 0);
     };
 
     settings.on_message_complete = [](http_parser *parser) {
+        std::cout << "mc" << std::endl;
         send_oncomplete(parser, 1);
         //delete (request_info *) parser->data;
+        std::cout << "deleted rq!" << std::endl;
         return 0;
     };
 
     settings.on_url = [](http_parser *parser, const char *at, size_t length) {
+        // std::cout << "url" << std::endl;
         return send_string(parser, (char *) at, length, 2);
     };
 
     settings.on_header_field = [](http_parser *parser, const char *at, size_t length) {
+        // std::cout << "hf" << std::endl;
         return send_string(parser, (char *) at, length, 3);
     };
 
     settings.on_header_value = [](http_parser *parser, const char *at, size_t length) {
+        // std::cout << "hv" << std::endl;
         return send_string(parser, (char *) at, length, 4);
     };
 
     settings.on_body = [](http_parser *parser, const char *at, size_t length) {
+        // std::cout << "body" << std::endl;
         return send_string(parser, (char *) at, length, 5, true);
     };
 
     unsigned int isUpgrade = 0;
 
+    // std::cout << "start" << std::endl;
     while ((recved = recv(rq->sock, buf, len, 0)) > 0) {
         if (isUpgrade) {
             send_string(&parser, buf, (size_t) recved, 7, true);
